@@ -160,8 +160,13 @@ int haven_whisper_generate_srt(const char *model_path,
                                const char *audio_path,
                                const char *output_srt_path,
                                const char *language,
-                               int use_gpu) {
+                               int use_gpu,
+                               char *out_detected_lang,
+                               size_t out_detected_lang_cap) {
     if (!model_path || !audio_path || !output_srt_path) return 2;
+    if (out_detected_lang && out_detected_lang_cap > 0) {
+        out_detected_lang[0] = '\0';
+    }
 
     struct whisper_context_params cparams = whisper_context_default_params();
     cparams.use_gpu = use_gpu != 0;
@@ -202,6 +207,17 @@ int haven_whisper_generate_srt(const char *model_path,
     if (rc != 0) {
         whisper_free(ctx);
         return 4;
+    }
+
+    if (out_detected_lang && out_detected_lang_cap > 0) {
+        const int lang_id = whisper_full_lang_id(ctx);
+        if (lang_id >= 0) {
+            const char *ls = whisper_lang_str(lang_id);
+            if (ls && ls[0] != '\0') {
+                strncpy(out_detected_lang, ls, out_detected_lang_cap - 1);
+                out_detected_lang[out_detected_lang_cap - 1] = '\0';
+            }
+        }
     }
 
     const int wrc = write_srt(output_srt_path, ctx);
